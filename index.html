@@ -58,6 +58,33 @@
             .dashboard-button .label {
                 font-size: 18px !important;
             }
+            
+            .nav-button-text {
+                display: none;
+            }
+            
+            .nav-button {
+                padding: 12px 16px !important;
+                min-width: 50px;
+            }
+            
+            .summary-grid {
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 8px !important;
+            }
+            
+            .summary-box {
+                padding: 12px 8px !important;
+            }
+            
+            .summary-box > div:first-child {
+                font-size: 28px !important;
+                margin-bottom: 4px !important;
+            }
+            
+            .summary-box > div:last-child {
+                font-size: 24px !important;
+            }
         }
     </style>
 </head>
@@ -934,6 +961,7 @@
                             }}>
                                 <button
                                     onClick={() => changeDate(-1)}
+                                    className="nav-button"
                                     style={{
                                         background: '#000',
                                         color: 'white',
@@ -946,7 +974,7 @@
                                         fontWeight: 'bold'
                                     }}
                                 >
-                                    ← Poprzedni
+                                    ← <span className="nav-button-text">Poprzedni</span>
                                 </button>
                                 
                                 <div style={{
@@ -964,6 +992,7 @@
                                 <button
                                     onClick={() => changeDate(1)}
                                     disabled={selectedDate >= new Date()}
+                                    className="nav-button"
                                     style={{
                                         background: selectedDate >= new Date() ? '#e0e0e0' : '#000',
                                         color: selectedDate >= new Date() ? '#999' : 'white',
@@ -976,7 +1005,7 @@
                                         fontWeight: 'bold'
                                     }}
                                 >
-                                    Następny →
+                                    <span className="nav-button-text">Następny</span> →
                                 </button>
                             </div>
 
@@ -997,12 +1026,12 @@
                                 }}>
                                     📊 Podsumowanie dnia
                                 </h3>
-                                <div style={{
+                                <div className="summary-grid" style={{
                                     display: 'grid',
                                     gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
                                     gap: '16px'
                                 }}>
-                                    <div style={{
+                                    <div className="summary-box" style={{
                                         background: 'white',
                                         borderRadius: '12px',
                                         padding: '16px',
@@ -1010,15 +1039,12 @@
                                         boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
                                     }}>
                                         <div style={{ fontSize: '32px', marginBottom: '8px' }}>🍼</div>
-                                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#333', marginBottom: '4px' }}>
+                                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#333' }}>
                                             {getDaySummary().feedingCount}
-                                        </div>
-                                        <div style={{ fontSize: '14px', color: '#666' }}>
-                                            {getDaySummary().feedingCount === 1 ? 'karmienie' : 'karmienia/karmień'}
                                         </div>
                                     </div>
                                     
-                                    <div style={{
+                                    <div className="summary-box" style={{
                                         background: 'white',
                                         borderRadius: '12px',
                                         padding: '16px',
@@ -1026,15 +1052,12 @@
                                         boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
                                     }}>
                                         <div style={{ fontSize: '32px', marginBottom: '8px' }}>💩</div>
-                                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#333', marginBottom: '4px' }}>
+                                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#333' }}>
                                             {getDaySummary().poopCount}
-                                        </div>
-                                        <div style={{ fontSize: '14px', color: '#666' }}>
-                                            {getDaySummary().poopCount === 1 ? 'kupka' : 'kupki/kupek'}
                                         </div>
                                     </div>
                                     
-                                    <div style={{
+                                    <div className="summary-box" style={{
                                         background: 'white',
                                         borderRadius: '12px',
                                         padding: '16px',
@@ -1042,11 +1065,8 @@
                                         boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
                                     }}>
                                         <div style={{ fontSize: '32px', marginBottom: '8px' }}>💧</div>
-                                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#333', marginBottom: '4px' }}>
+                                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#333' }}>
                                             {getDaySummary().peeCount}
-                                        </div>
-                                        <div style={{ fontSize: '14px', color: '#666' }}>
-                                            {getDaySummary().peeCount === 1 ? 'siku' : 'razy siku'}
                                         </div>
                                     </div>
                                 </div>
@@ -1119,8 +1139,8 @@
                                                         <button
                                                             onClick={() => setShowDeleteConfirm(entry.id)}
                                                             style={{
-                                                                background: '#333',
-                                                                color: 'white',
+                                                                background: '#D21632',
+                                                                color: '#ffffff',
                                                                 border: 'none',
                                                                 borderRadius: '8px',
                                                                 padding: '8px 16px',
@@ -1198,8 +1218,8 @@
                                                         <button
                                                             onClick={() => setShowDeleteConfirm(entry.id)}
                                                             style={{
-                                                                background: '#333',
-                                                                color: 'white',
+                                                                background: '#D21632',
+                                                                color: '#ffffff',
                                                                 border: 'none',
                                                                 borderRadius: '8px',
                                                                 padding: '8px 16px',
@@ -1274,9 +1294,9 @@
                                                     <button
                                                         onClick={() => startEdit(entry)}
                                                         style={{
-                                                            background: '#000',
-                                                            color: 'white',
-                                                            border: 'none',
+                                                            background: '#ffffff',
+                                                            color: '#000000',
+                                                            border: '2px solid #000000',
                                                             borderRadius: '8px',
                                                             padding: '8px 16px',
                                                             cursor: 'pointer',
@@ -1290,8 +1310,8 @@
                                                     <button
                                                         onClick={() => setShowDeleteConfirm(entry.id)}
                                                         style={{
-                                                            background: '#333',
-                                                            color: 'white',
+                                                            background: '#D21632',
+                                                            color: '#ffffff',
                                                             border: 'none',
                                                             borderRadius: '8px',
                                                             padding: '8px 16px',
@@ -1368,9 +1388,9 @@
                                                     <button
                                                         onClick={() => startEdit(entry)}
                                                         style={{
-                                                            background: '#000',
-                                                            color: 'white',
-                                                            border: 'none',
+                                                            background: '#ffffff',
+                                                            color: '#000000',
+                                                            border: '2px solid #000000',
                                                             borderRadius: '8px',
                                                             padding: '8px 16px',
                                                             cursor: 'pointer',
@@ -1384,8 +1404,8 @@
                                                     <button
                                                         onClick={() => setShowDeleteConfirm(entry.id)}
                                                         style={{
-                                                            background: '#333',
-                                                            color: 'white',
+                                                            background: '#D21632',
+                                                            color: '#ffffff',
                                                             border: 'none',
                                                             borderRadius: '8px',
                                                             padding: '8px 16px',
@@ -1629,8 +1649,8 @@
                                             flex: 1,
                                             minWidth: '120px',
                                             padding: '14px',
-                                            background: '#333',
-                                            color: 'white',
+                                            background: '#D21632',
+                                            color: '#ffffff',
                                             border: 'none',
                                             borderRadius: '12px',
                                             fontSize: '16px',

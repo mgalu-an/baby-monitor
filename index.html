@@ -21,6 +21,85 @@
         #root {
             min-height: 100vh;
         }
+        
+        /* Hamburger menu styles */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            padding: 8px;
+            gap: 6px;
+        }
+        
+        .hamburger span {
+            width: 28px;
+            height: 3px;
+            background: #ff6b6b;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        
+        .hamburger.open span:nth-child(1) {
+            transform: rotate(45deg) translate(8px, 8px);
+        }
+        
+        .hamburger.open span:nth-child(2) {
+            opacity: 0;
+        }
+        
+        .hamburger.open span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -7px);
+        }
+        
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 76px;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            z-index: 999;
+            padding: 20px;
+            gap: 12px;
+            flex-direction: column;
+        }
+        
+        .mobile-menu.open {
+            display: flex;
+        }
+        
+        .desktop-menu {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 768px) {
+            .hamburger {
+                display: flex;
+            }
+            
+            .desktop-menu {
+                display: none;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: repeat(3, 1fr) !important;
+            }
+            
+            .dashboard-button {
+                padding: 32px 16px !important;
+            }
+            
+            .dashboard-button .emoji {
+                font-size: 48px !important;
+            }
+            
+            .dashboard-button .label {
+                font-size: 16px !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -41,7 +120,6 @@
         const { useState, useEffect } = React;
 
         // === KONFIGURACJA SUPABASE ===
-        // WKLEJ TUTAJ SWOJE DANE Z SUPABASE
         const SUPABASE_URL = 'https://jkxwqhmsayfjgaisewzr.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_mnc22clh7MV7gbH8WXCWPQ_t7Q42aW6';
 
@@ -71,6 +149,9 @@
             });
             const [editingEntry, setEditingEntry] = useState(null);
             const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+            const [showVitaminDPrompt, setShowVitaminDPrompt] = useState(false);
+            const [showProbioticPrompt, setShowProbioticPrompt] = useState(false);
+            const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
             // Sprawdź czy użytkownik jest zalogowany
             useEffect(() => {
@@ -86,6 +167,31 @@
                     fetchEntries();
                 }
             }, [isLoggedIn, selectedDate]);
+
+            // Sprawdź czy pokazać prompt o witaminie D (tylko dla dzisiejszej daty)
+            useEffect(() => {
+                if (isLoggedIn && isToday(selectedDate)) {
+                    checkVitaminD();
+                    checkProbiotic();
+                }
+            }, [isLoggedIn, entries, selectedDate]);
+
+            const isToday = (date) => {
+                const today = new Date();
+                return date.getDate() === today.getDate() &&
+                       date.getMonth() === today.getMonth() &&
+                       date.getFullYear() === today.getFullYear();
+            };
+
+            const checkVitaminD = () => {
+                const hasVitaminD = entries.some(entry => entry.type === 'vitamin_d');
+                setShowVitaminDPrompt(isToday(selectedDate) && !hasVitaminD);
+            };
+
+            const checkProbiotic = () => {
+                const hasProbiotic = entries.some(entry => entry.type === 'probiotic');
+                setShowProbioticPrompt(isToday(selectedDate) && !hasProbiotic);
+            };
 
             const fetchEntries = async () => {
                 const startOfDay = new Date(selectedDate);
@@ -139,6 +245,42 @@
                     console.error('Błąd dodawania karmienia:', error);
                     alert('Błąd zapisu. Sprawdź konfigurację Supabase.');
                 } else {
+                    fetchEntries();
+                }
+            };
+
+            const addVitaminD = async () => {
+                const now = new Date();
+                const { data, error } = await supabase
+                    .from('entries')
+                    .insert([
+                        { type: 'vitamin_d', timestamp: now.toISOString(), note: null }
+                    ])
+                    .select();
+
+                if (error) {
+                    console.error('Błąd dodawania witaminy D:', error);
+                    alert('Błąd zapisu. Sprawdź konfigurację Supabase.');
+                } else {
+                    setShowVitaminDPrompt(false);
+                    fetchEntries();
+                }
+            };
+
+            const addProbiotic = async () => {
+                const now = new Date();
+                const { data, error } = await supabase
+                    .from('entries')
+                    .insert([
+                        { type: 'probiotic', timestamp: now.toISOString(), note: null }
+                    ])
+                    .select();
+
+                if (error) {
+                    console.error('Błąd dodawania probiotyku:', error);
+                    alert('Błąd zapisu. Sprawdź konfigurację Supabase.');
+                } else {
+                    setShowProbioticPrompt(false);
                     fetchEntries();
                 }
             };
@@ -262,6 +404,8 @@
                     case 'poop': return '💩 Kupka';
                     case 'pee': return '💧 Siku';
                     case 'both': return '💩💧 Kupka + Siku';
+                    case 'vitamin_d': return '💊 Witamina D';
+                    case 'probiotic': return '🦠 Probiotyk';
                     default: return type;
                 }
             };
@@ -272,6 +416,8 @@
                     case 'poop': return '#d4a574';
                     case 'pee': return '#7fb3d5';
                     case 'both': return '#9fa8da';
+                    case 'vitamin_d': return '#ffd93d';
+                    case 'probiotic': return '#9de0ad';
                     default: return '#e0e0e0';
                 }
             };
@@ -444,7 +590,8 @@
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         flexWrap: 'wrap',
-                        gap: '12px'
+                        gap: '12px',
+                        position: 'relative'
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <div style={{ fontSize: '36px' }}>👶</div>
@@ -453,7 +600,8 @@
                             </h1>
                         </div>
                         
-                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        {/* Desktop menu */}
+                        <div className="desktop-menu" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                             <button
                                 onClick={() => setCurrentView('dashboard')}
                                 style={{
@@ -508,6 +656,82 @@
                                 Wyloguj
                             </button>
                         </div>
+                        
+                        {/* Hamburger menu button */}
+                        <div 
+                            className={`hamburger ${mobileMenuOpen ? 'open' : ''}`}
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        >
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                    
+                    {/* Mobile menu */}
+                    <div className={`mobile-menu ${mobileMenuOpen ? 'open' : ''}`}>
+                        <button
+                            onClick={() => {
+                                setCurrentView('dashboard');
+                                setMobileMenuOpen(false);
+                            }}
+                            style={{
+                                padding: '12px 24px',
+                                background: currentView === 'dashboard' ? '#ff6b6b' : '#f0f0f0',
+                                color: currentView === 'dashboard' ? 'white' : '#666',
+                                border: 'none',
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                transition: 'all 0.3s',
+                                width: '100%'
+                            }}
+                        >
+                            Panel
+                        </button>
+                        
+                        <button
+                            onClick={() => {
+                                setCurrentView('history');
+                                setMobileMenuOpen(false);
+                            }}
+                            style={{
+                                padding: '12px 24px',
+                                background: currentView === 'history' ? '#ff6b6b' : '#f0f0f0',
+                                color: currentView === 'history' ? 'white' : '#666',
+                                border: 'none',
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                transition: 'all 0.3s',
+                                width: '100%'
+                            }}
+                        >
+                            Historia
+                        </button>
+                        
+                        <button
+                            onClick={handleLogout}
+                            style={{
+                                padding: '12px 24px',
+                                background: '#f0f0f0',
+                                color: '#666',
+                                border: 'none',
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                transition: 'all 0.3s',
+                                width: '100%'
+                            }}
+                        >
+                            Wyloguj
+                        </button>
                     </div>
 
                     {/* Dashboard */}
@@ -516,13 +740,192 @@
                             maxWidth: '900px',
                             margin: '0 auto'
                         }}>
-                            <div style={{
+                            {/* Supplements prompts - Vitamin D and Probiotic */}
+                            {(showVitaminDPrompt || showProbioticPrompt) && (
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                    gap: '16px',
+                                    marginBottom: '24px'
+                                }}>
+                                    {/* Vitamin D prompt */}
+                                    {showVitaminDPrompt && (
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, #ffd93d 0%, #ffb347 100%)',
+                                            borderRadius: '16px',
+                                            padding: '20px',
+                                            boxShadow: '0 4px 16px rgba(255, 217, 61, 0.3)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '12px',
+                                            alignItems: 'center'
+                                        }}>
+                                            <div style={{ fontSize: '36px' }}>💊</div>
+                                            <div style={{
+                                                fontSize: '16px',
+                                                fontWeight: 'bold',
+                                                color: '#664d00',
+                                                textAlign: 'center'
+                                            }}>
+                                                Czy podałeś witaminę D?
+                                            </div>
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: '8px',
+                                                width: '100%',
+                                                flexWrap: 'wrap'
+                                            }}>
+                                                <button
+                                                    onClick={addVitaminD}
+                                                    style={{
+                                                        flex: 1,
+                                                        minWidth: '100px',
+                                                        padding: '10px 16px',
+                                                        background: '#4caf50',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '10px',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        cursor: 'pointer',
+                                                        fontFamily: 'inherit',
+                                                        boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.target.style.transform = 'translateY(-1px)';
+                                                        e.target.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.4)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.target.style.transform = 'translateY(0)';
+                                                        e.target.style.boxShadow = '0 2px 8px rgba(76, 175, 80, 0.3)';
+                                                    }}
+                                                >
+                                                    ✓ Tak
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowVitaminDPrompt(false)}
+                                                    style={{
+                                                        flex: 1,
+                                                        minWidth: '100px',
+                                                        padding: '10px 16px',
+                                                        background: 'rgba(255, 255, 255, 0.9)',
+                                                        color: '#664d00',
+                                                        border: '2px solid rgba(255, 255, 255, 0.5)',
+                                                        borderRadius: '10px',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        cursor: 'pointer',
+                                                        fontFamily: 'inherit',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.target.style.background = 'white';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.target.style.background = 'rgba(255, 255, 255, 0.9)';
+                                                    }}
+                                                >
+                                                    Później
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Probiotic prompt */}
+                                    {showProbioticPrompt && (
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, #9de0ad 0%, #7bc795 100%)',
+                                            borderRadius: '16px',
+                                            padding: '20px',
+                                            boxShadow: '0 4px 16px rgba(157, 224, 173, 0.3)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '12px',
+                                            alignItems: 'center'
+                                        }}>
+                                            <div style={{ fontSize: '36px' }}>🦠</div>
+                                            <div style={{
+                                                fontSize: '16px',
+                                                fontWeight: 'bold',
+                                                color: '#2d5f3f',
+                                                textAlign: 'center'
+                                            }}>
+                                                Czy podałeś dziś probiotyk?
+                                            </div>
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: '8px',
+                                                width: '100%',
+                                                flexWrap: 'wrap'
+                                            }}>
+                                                <button
+                                                    onClick={addProbiotic}
+                                                    style={{
+                                                        flex: 1,
+                                                        minWidth: '100px',
+                                                        padding: '10px 16px',
+                                                        background: '#4caf50',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '10px',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        cursor: 'pointer',
+                                                        fontFamily: 'inherit',
+                                                        boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.target.style.transform = 'translateY(-1px)';
+                                                        e.target.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.4)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.target.style.transform = 'translateY(0)';
+                                                        e.target.style.boxShadow = '0 2px 8px rgba(76, 175, 80, 0.3)';
+                                                    }}
+                                                >
+                                                    ✓ Tak
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowProbioticPrompt(false)}
+                                                    style={{
+                                                        flex: 1,
+                                                        minWidth: '100px',
+                                                        padding: '10px 16px',
+                                                        background: 'rgba(255, 255, 255, 0.9)',
+                                                        color: '#2d5f3f',
+                                                        border: '2px solid rgba(255, 255, 255, 0.5)',
+                                                        borderRadius: '10px',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        cursor: 'pointer',
+                                                        fontFamily: 'inherit',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.target.style.background = 'white';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.target.style.background = 'rgba(255, 255, 255, 0.9)';
+                                                    }}
+                                                >
+                                                    Później
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            
+                            <div className="dashboard-grid" style={{
                                 display: 'grid',
                                 gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
                                 gap: '24px'
                             }}>
                                 {/* Karmienie */}
                                 <button
+                                    className="dashboard-button"
                                     onClick={addFeeding}
                                     style={{
                                         background: 'white',
@@ -546,8 +949,8 @@
                                         e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
                                     }}
                                 >
-                                    <div style={{ fontSize: '72px' }}>🍼</div>
-                                    <div style={{
+                                    <div className="emoji" style={{ fontSize: '72px' }}>🍼</div>
+                                    <div className="label" style={{
                                         fontSize: '24px',
                                         fontWeight: 'bold',
                                         color: '#a8d5ba',
@@ -559,6 +962,7 @@
 
                                 {/* Kupka */}
                                 <button
+                                    className="dashboard-button"
                                     onClick={() => openDiaperModal('poop')}
                                     style={{
                                         background: 'white',
@@ -582,8 +986,8 @@
                                         e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
                                     }}
                                 >
-                                    <div style={{ fontSize: '72px' }}>💩</div>
-                                    <div style={{
+                                    <div className="emoji" style={{ fontSize: '72px' }}>💩</div>
+                                    <div className="label" style={{
                                         fontSize: '24px',
                                         fontWeight: 'bold',
                                         color: '#d4a574',
@@ -595,6 +999,7 @@
 
                                 {/* Siku */}
                                 <button
+                                    className="dashboard-button"
                                     onClick={() => openDiaperModal('pee')}
                                     style={{
                                         background: 'white',
@@ -618,8 +1023,8 @@
                                         e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
                                     }}
                                 >
-                                    <div style={{ fontSize: '72px' }}>💧</div>
-                                    <div style={{
+                                    <div className="emoji" style={{ fontSize: '72px' }}>💧</div>
+                                    <div className="label" style={{
                                         fontSize: '24px',
                                         fontWeight: 'bold',
                                         color: '#7fb3d5',
@@ -795,6 +1200,7 @@
                                 background: 'white',
                                 borderRadius: '20px',
                                 padding: '24px',
+                                marginBottom: '24px',
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
                             }}>
                                 <h2 style={{
@@ -809,13 +1215,13 @@
                                     Kupki i Siku
                                 </h2>
                                 
-                                {entries.filter(e => e.type !== 'feeding').length === 0 ? (
+                                {entries.filter(e => e.type !== 'feeding' && e.type !== 'vitamin_d' && e.type !== 'probiotic').length === 0 ? (
                                     <p style={{ color: '#999', fontStyle: 'italic' }}>
                                         Brak wpisów
                                     </p>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        {entries.filter(e => e.type !== 'feeding').map(entry => (
+                                        {entries.filter(e => e.type !== 'feeding' && e.type !== 'vitamin_d' && e.type !== 'probiotic').map(entry => (
                                             <div
                                                 key={entry.id}
                                                 style={{
@@ -861,6 +1267,175 @@
                                                         Edytuj
                                                     </button>
                                                     
+                                                    <button
+                                                        onClick={() => setShowDeleteConfirm(entry.id)}
+                                                        style={{
+                                                            background: '#f44336',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            padding: '8px 16px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '14px',
+                                                            fontFamily: 'inherit'
+                                                        }}
+                                                    >
+                                                        Usuń
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Lista wpisów - Witamina D */}
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '20px',
+                                padding: '24px',
+                                marginBottom: '24px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                            }}>
+                                <h2 style={{
+                                    margin: '0 0 20px 0',
+                                    color: '#ffd93d',
+                                    fontSize: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px'
+                                }}>
+                                    <span style={{ fontSize: '32px' }}>💊</span>
+                                    Witamina D
+                                </h2>
+                                
+                                {entries.filter(e => e.type === 'vitamin_d').length === 0 ? (
+                                    <div style={{
+                                        padding: '16px',
+                                        background: '#fff9e6',
+                                        borderRadius: '12px',
+                                        borderLeft: '4px solid #ffd93d'
+                                    }}>
+                                        <p style={{ color: '#b8860b', margin: 0, fontStyle: 'italic' }}>
+                                            ⚠️ Nie zaznaczono, że podano witaminę D
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {entries.filter(e => e.type === 'vitamin_d').map(entry => (
+                                            <div
+                                                key={entry.id}
+                                                style={{
+                                                    background: '#fffbf0',
+                                                    padding: '16px',
+                                                    borderRadius: '12px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    borderLeft: `4px solid ${getTypeColor(entry.type)}`,
+                                                    flexWrap: 'wrap',
+                                                    gap: '12px'
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#b8860b' }}>
+                                                        {getTypeLabel(entry.type)}
+                                                    </div>
+                                                    <div style={{ fontSize: '14px', color: '#666' }}>
+                                                        {formatDateTime(entry.timestamp)}
+                                                    </div>
+                                                    {entry.note && (
+                                                        <div style={{ fontSize: '14px', color: '#666', fontStyle: 'italic', marginTop: '4px' }}>
+                                                            {entry.note}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        onClick={() => setShowDeleteConfirm(entry.id)}
+                                                        style={{
+                                                            background: '#f44336',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            padding: '8px 16px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '14px',
+                                                            fontFamily: 'inherit'
+                                                        }}
+                                                    >
+                                                        Usuń
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Lista wpisów - Probiotyk */}
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '20px',
+                                padding: '24px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                            }}>
+                                <h2 style={{
+                                    margin: '0 0 20px 0',
+                                    color: '#9de0ad',
+                                    fontSize: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px'
+                                }}>
+                                    <span style={{ fontSize: '32px' }}>🦠</span>
+                                    Probiotyk
+                                </h2>
+                                
+                                {entries.filter(e => e.type === 'probiotic').length === 0 ? (
+                                    <div style={{
+                                        padding: '16px',
+                                        background: '#f0fdf4',
+                                        borderRadius: '12px',
+                                        borderLeft: '4px solid #9de0ad'
+                                    }}>
+                                        <p style={{ color: '#2d5f3f', margin: 0, fontStyle: 'italic' }}>
+                                            ⚠️ Nie zaznaczono, że podano probiotyk
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {entries.filter(e => e.type === 'probiotic').map(entry => (
+                                            <div
+                                                key={entry.id}
+                                                style={{
+                                                    background: '#f0fdf4',
+                                                    padding: '16px',
+                                                    borderRadius: '12px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    borderLeft: `4px solid ${getTypeColor(entry.type)}`,
+                                                    flexWrap: 'wrap',
+                                                    gap: '12px'
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#2d5f3f' }}>
+                                                        {getTypeLabel(entry.type)}
+                                                    </div>
+                                                    <div style={{ fontSize: '14px', color: '#666' }}>
+                                                        {formatDateTime(entry.timestamp)}
+                                                    </div>
+                                                    {entry.note && (
+                                                        <div style={{ fontSize: '14px', color: '#666', fontStyle: 'italic', marginTop: '4px' }}>
+                                                            {entry.note}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                <div style={{ display: 'flex', gap: '8px' }}>
                                                     <button
                                                         onClick={() => setShowDeleteConfirm(entry.id)}
                                                         style={{

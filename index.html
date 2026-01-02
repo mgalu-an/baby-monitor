@@ -1107,54 +1107,51 @@
                                 gap: '24px'
                             }}>
                                 {/* Karmienie */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    <button
-                                        className="dashboard-button"
-                                        onClick={addFeeding}
-                                        style={{
-                                            background: 'white',
-                                            border: 'none',
-                                            borderRadius: '24px',
-                                            padding: '48px 32px',
-                                            cursor: 'pointer',
-                                            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                                            transition: 'all 0.3s',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            gap: '16px',
-                                            width: '100%'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.transform = 'translateY(-8px)';
-                                            e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'translateY(0)';
-                                            e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
-                                        }}
-                                    >
-                                        <div className="emoji" style={{ fontSize: '72px' }}>🍼</div>
-                                        <div className="label" style={{
-                                            fontSize: '24px',
-                                            fontWeight: 'bold',
-                                            color: '#333',
-                                            fontFamily: 'inherit'
-                                        }}>
-                                            Karmienie
-                                        </div>
-                                    </button>
+                                <button
+                                    className="dashboard-button"
+                                    onClick={addFeeding}
+                                    style={{
+                                        background: 'white',
+                                        border: 'none',
+                                        borderRadius: '24px',
+                                        padding: '48px 32px',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                        transition: 'all 0.3s',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '16px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(-8px)';
+                                        e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
+                                    }}
+                                >
+                                    <div className="emoji" style={{ fontSize: '72px' }}>🍼</div>
+                                    <div className="label" style={{
+                                        fontSize: '24px',
+                                        fontWeight: 'bold',
+                                        color: '#333',
+                                        fontFamily: 'inherit'
+                                    }}>
+                                        Karmienie
+                                    </div>
                                     {getTimeSinceLastFeeding() && (
                                         <div style={{
-                                            textAlign: 'center',
                                             fontSize: '14px',
                                             color: '#666',
-                                            fontWeight: '500'
+                                            fontWeight: '500',
+                                            marginTop: '4px'
                                         }}>
                                             Od ostatniego: {getTimeSinceLastFeeding().hours}h {getTimeSinceLastFeeding().minutes}min
                                         </div>
                                     )}
-                                </div>
+                                </button>
 
                                 {/* Kupka/Siku */}
                                 <button

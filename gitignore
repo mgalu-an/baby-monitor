@@ -1,0 +1,32 @@
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Edytory
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logi
+*.log
+
+# Tymczasowe pliki
+*.tmp
+*.bak
+.temp/
+
+# Node modules (na wypadek przyszłej rozbudowy)
+node_modules/
+npm-debug.log*
+
+# Zmienne środowiskowe (na wypadek)
+.env
+.env.local

@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Quicksand', 'Comic Sans MS', cursive;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        #root {
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- React, ReactDOM z CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Babel Standalone do transpilacji JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Aplikacja -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // === KONFIGURACJA SUPABASE ===
+        // WKLEJ TUTAJ SWOJE DANE Z SUPABASE
+        const SUPABASE_URL = 'https://jkxwqhmsayfjgaisewzr.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_mnc22clh7MV7gbH8WXCWPQ_t7Q42aW6';
+
+        // Inicjalizacja Supabase
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Stałe logowania
+        const CREDENTIALS = {
+            username: 'admin',
+            password: 'kubus2025'
+        };
+
+        const App = () => {
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [loginError, setLoginError] = useState('');
+            const [currentView, setCurrentView] = useState('dashboard');
+            const [entries, setEntries] = useState([]);
+            const [selectedDate, setSelectedDate] = useState(new Date());
+            const [showModal, setShowModal] = useState(false);
+            const [modalType, setModalType] = useState('');
+            const [modalData, setModalData] = useState({
+                poop: false,
+                pee: false,
+                note: ''
+            });
+            const [editingEntry, setEditingEntry] = useState(null);
+            const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+
+            // Sprawdź czy użytkownik jest zalogowany
+            useEffect(() => {
+                const logged = localStorage.getItem('babyMonitor_logged');
+                if (logged === 'true') {
+                    setIsLoggedIn(true);
+                }
+            }, []);
+
+            // Pobierz wpisy dla wybranej daty
+            useEffect(() => {
+                if (isLoggedIn) {
+                    fetchEntries();
+                }
+            }, [isLoggedIn, selectedDate]);
+
+            const fetchEntries = async () => {
+                const startOfDay = new Date(selectedDate);
+                startOfDay.setHours(0, 0, 0, 0);
+                
+                const endOfDay = new Date(selectedDate);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                const { data, error } = await supabase
+                    .from('entries')
+                    .select('*')
+                    .gte('timestamp', startOfDay.toISOString())
+                    .lte('timestamp', endOfDay.toISOString())
+                    .order('timestamp', { ascending: false });
+
+                if (error) {
+                    console.error('Błąd pobierania danych:', error);
+                } else {
+                    setEntries(data || []);
+                }
+            };
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                if (username === CREDENTIALS.username && password === CREDENTIALS.password) {
+                    setIsLoggedIn(true);
+                    localStorage.setItem('babyMonitor_logged', 'true');
+                    setLoginError('');
+                } else {
+                    setLoginError('Nieprawidłowa nazwa użytkownika lub hasło');
+                }
+            };
+
+            const handleLogout = () => {
+                setIsLoggedIn(false);
+                localStorage.removeItem('babyMonitor_logged');
+                setUsername('');
+                setPassword('');
+            };
+
+            const addFeeding = async () => {
+                const now = new Date();
+                const { data, error } = await supabase
+                    .from('entries')
+                    .insert([
+                        { type: 'feeding', timestamp: now.toISOString(), note: null }
+                    ])
+                    .select();
+
+                if (error) {
+                    console.error('Błąd dodawania karmienia:', error);
+                    alert('Błąd zapisu. Sprawdź konfigurację Supabase.');
+                } else {
+                    fetchEntries();
+                }
+            };
+
+            const openDiaperModal = (type) => {
+                setModalType(type);
+                setModalData({ poop: false, pee: false, note: '' });
+                setShowModal(true);
+            };
+
+            const saveDiaperEntry = async () => {
+                const { poop, pee, note } = modalData;
+                
+                let type = '';
+                if (poop && pee) type = 'both';
+                else if (poop) type = 'poop';
+                else if (pee) type = 'pee';
+                else {
+                    alert('Zaznacz przynajmniej jedną opcję');
+                    return;
+                }
+
+                const now = new Date();
+                const { data, error } = await supabase
+                    .from('entries')
+                    .insert([
+                        { 
+                            type, 
+                            timestamp: now.toISOString(), 
+                            note: note.trim() || null 
+                        }
+                    ])
+                    .select();
+
+                if (error) {
+                    console.error('Błąd dodawania wpisu:', error);
+                    alert('Błąd zapisu. Sprawdź konfigurację Supabase.');
+                } else {
+                    setShowModal(false);
+                    fetchEntries();
+                }
+            };
+
+            const startEdit = (entry) => {
+                setEditingEntry(entry);
+                setModalData({
+                    poop: entry.type === 'poop' || entry.type === 'both',
+                    pee: entry.type === 'pee' || entry.type === 'both',
+                    note: entry.note || ''
+                });
+                setModalType('edit');
+                setShowModal(true);
+            };
+
+            const saveEdit = async () => {
+                const { poop, pee, note } = modalData;
+                
+                let type = editingEntry.type;
+                if (editingEntry.type !== 'feeding') {
+                    if (poop && pee) type = 'both';
+                    else if (poop) type = 'poop';
+                    else if (pee) type = 'pee';
+                    else {
+                        alert('Zaznacz przynajmniej jedną opcję');
+                        return;
+                    }
+                }
+
+                const { error } = await supabase
+                    .from('entries')
+                    .update({ 
+                        type, 
+                        note: note.trim() || null 
+                    })
+                    .eq('id', editingEntry.id);
+
+                if (error) {
+                    console.error('Błąd edycji:', error);
+                    alert('Błąd zapisu.');
+                } else {
+                    setShowModal(false);
+                    setEditingEntry(null);
+                    fetchEntries();
+                }
+            };
+
+            const deleteEntry = async (id) => {
+                const { error } = await supabase
+                    .from('entries')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
+                    console.error('Błąd usuwania:', error);
+                    alert('Błąd usuwania.');
+                } else {
+                    setShowDeleteConfirm(null);
+                    fetchEntries();
+                }
+            };
+
+            const formatDateTime = (timestamp) => {
+                const date = new Date(timestamp);
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${day}/${month}/${year}, ${hours}:${minutes}`;
+            };
+
+            const changeDate = (days) => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() + days);
+                setSelectedDate(newDate);
+            };
+
+            const getTypeLabel = (type) => {
+                switch(type) {
+                    case 'feeding': return '🍼 Karmienie';
+                    case 'poop': return '💩 Kupka';
+                    case 'pee': return '💧 Siku';
+                    case 'both': return '💩💧 Kupka + Siku';
+                    default: return type;
+                }
+            };
+
+            const getTypeColor = (type) => {
+                switch(type) {
+                    case 'feeding': return '#a8d5ba';
+                    case 'poop': return '#d4a574';
+                    case 'pee': return '#7fb3d5';
+                    case 'both': return '#9fa8da';
+                    default: return '#e0e0e0';
+                }
+            };
+
+            // Ekran logowania
+            if (!isLoggedIn) {
+                return (
+                    <div style={{
+                        minHeight: '100vh',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontFamily: '"Quicksand", "Comic Sans MS", cursive',
+                        padding: '20px'
+                    }}>
+                        <div style={{
+                            background: 'white',
+                            borderRadius: '24px',
+                            padding: '48px',
+                            maxWidth: '400px',
+                            width: '100%',
+                            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                        }}>
+                            <div style={{
+                                textAlign: 'center',
+                                marginBottom: '32px'
+                            }}>
+                                <div style={{ fontSize: '64px', marginBottom: '16px' }}>👶</div>
+                                <h1 style={{ 
+                                    margin: '0 0 8px 0', 
+                                    color: '#667eea',
+                                    fontSize: '32px',
+                                    fontWeight: 'bold'
+                                }}>
+                                    Baby Monitor
+                                </h1>
+                                <p style={{ 
+                                    margin: 0, 
+                                    color: '#888',
+                                    fontSize: '16px'
+                                }}>
+                                    Monitorowanie niemowlaka
+                                </p>
+                            </div>
+                            
+                            <form onSubmit={handleLogin}>
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={{ 
+                                        display: 'block', 
+                                        marginBottom: '8px',
+                                        color: '#555',
+                                        fontWeight: '600',
+                                        fontSize: '14px'
+                                    }}>
+                                        Nazwa użytkownika
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '14px',
+                                            borderRadius: '12px',
+                                            border: '2px solid #e0e0e0',
+                                            fontSize: '16px',
+                                            fontFamily: 'inherit',
+                                            boxSizing: 'border-box',
+                                            transition: 'border-color 0.3s'
+                                        }}
+                                        onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                                        onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                                    />
+                                </div>
+                                
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label style={{ 
+                                        display: 'block', 
+                                        marginBottom: '8px',
+                                        color: '#555',
+                                        fontWeight: '600',
+                                        fontSize: '14px'
+                                    }}>
+                                        Hasło
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '14px',
+                                            borderRadius: '12px',
+                                            border: '2px solid #e0e0e0',
+                                            fontSize: '16px',
+                                            fontFamily: 'inherit',
+                                            boxSizing: 'border-box',
+                                            transition: 'border-color 0.3s'
+                                        }}
+                                        onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                                        onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                                    />
+                                </div>
+                                
+                                {loginError && (
+                                    <div style={{
+                                        background: '#fee',
+                                        color: '#c33',
+                                        padding: '12px',
+                                        borderRadius: '8px',
+                                        marginBottom: '20px',
+                                        fontSize: '14px',
+                                        textAlign: 'center'
+                                    }}>
+                                        {loginError}
+                                    </div>
+                                )}
+                                
+                                <button
+                                    type="submit"
+                                    style={{
+                                        width: '100%',
+                                        padding: '16px',
+                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        fontSize: '18px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit',
+                                        transition: 'transform 0.2s, box-shadow 0.2s',
+                                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.transform = 'translateY(-2px)';
+                                        e.target.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.transform = 'translateY(0)';
+                                        e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+                                    }}
+                                >
+                                    Zaloguj się
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Główna aplikacja
+            return (
+                <div style={{
+                    minHeight: '100vh',
+                    background: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+                    fontFamily: '"Quicksand", "Comic Sans MS", cursive',
+                    padding: '20px'
+                }}>
+                    {/* Header */}
+                    <div style={{
+                        maxWidth: '900px',
+                        margin: '0 auto 24px',
+                        background: 'white',
+                        borderRadius: '20px',
+                        padding: '20px 32px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ fontSize: '36px' }}>👶</div>
+                            <h1 style={{ margin: 0, color: '#ff6b6b', fontSize: '28px' }}>
+                                Baby Monitor
+                            </h1>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                            <button
+                                onClick={() => setCurrentView('dashboard')}
+                                style={{
+                                    padding: '12px 24px',
+                                    background: currentView === 'dashboard' ? '#ff6b6b' : '#f0f0f0',
+                                    color: currentView === 'dashboard' ? 'white' : '#666',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    transition: 'all 0.3s'
+                                }}
+                            >
+                                Panel
+                            </button>
+                            
+                            <button
+                                onClick={() => setCurrentView('history')}
+                                style={{
+                                    padding: '12px 24px',
+                                    background: currentView === 'history' ? '#ff6b6b' : '#f0f0f0',
+                                    color: currentView === 'history' ? 'white' : '#666',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    transition: 'all 0.3s'
+                                }}
+                            >
+                                Historia
+                            </button>
+                            
+                            <button
+                                onClick={handleLogout}
+                                style={{
+                                    padding: '12px 24px',
+                                    background: '#f0f0f0',
+                                    color: '#666',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    transition: 'all 0.3s'
+                                }}
+                            >
+                                Wyloguj
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Dashboard */}
+                    {currentView === 'dashboard' && (
+                        <div style={{
+                            maxWidth: '900px',
+                            margin: '0 auto'
+                        }}>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                gap: '24px'
+                            }}>
+                                {/* Karmienie */}
+                                <button
+                                    onClick={addFeeding}
+                                    style={{
+                                        background: 'white',
+                                        border: 'none',
+                                        borderRadius: '24px',
+                                        padding: '48px 32px',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                        transition: 'all 0.3s',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '16px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(-8px)';
+                                        e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
+                                    }}
+                                >
+                                    <div style={{ fontSize: '72px' }}>🍼</div>
+                                    <div style={{
+                                        fontSize: '24px',
+                                        fontWeight: 'bold',
+                                        color: '#a8d5ba',
+                                        fontFamily: 'inherit'
+                                    }}>
+                                        Karmienie
+                                    </div>
+                                </button>
+
+                                {/* Kupka */}
+                                <button
+                                    onClick={() => openDiaperModal('poop')}
+                                    style={{
+                                        background: 'white',
+                                        border: 'none',
+                                        borderRadius: '24px',
+                                        padding: '48px 32px',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                        transition: 'all 0.3s',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '16px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(-8px)';
+                                        e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
+                                    }}
+                                >
+                                    <div style={{ fontSize: '72px' }}>💩</div>
+                                    <div style={{
+                                        fontSize: '24px',
+                                        fontWeight: 'bold',
+                                        color: '#d4a574',
+                                        fontFamily: 'inherit'
+                                    }}>
+                                        Kupka
+                                    </div>
+                                </button>
+
+                                {/* Siku */}
+                                <button
+                                    onClick={() => openDiaperModal('pee')}
+                                    style={{
+                                        background: 'white',
+                                        border: 'none',
+                                        borderRadius: '24px',
+                                        padding: '48px 32px',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                        transition: 'all 0.3s',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '16px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(-8px)';
+                                        e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
+                                    }}
+                                >
+                                    <div style={{ fontSize: '72px' }}>💧</div>
+                                    <div style={{
+                                        fontSize: '24px',
+                                        fontWeight: 'bold',
+                                        color: '#7fb3d5',
+                                        fontFamily: 'inherit'
+                                    }}>
+                                        Siku
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Historia - reszta kodu jest taka sama jak wcześniej */}
+                    {currentView === 'history' && (
+                        <div style={{
+                            maxWidth: '900px',
+                            margin: '0 auto'
+                        }}>
+                            {/* Nawigacja po datach */}
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '20px',
+                                padding: '24px',
+                                marginBottom: '24px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gap: '12px'
+                            }}>
+                                <button
+                                    onClick={() => changeDate(-1)}
+                                    style={{
+                                        background: '#ff6b6b',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        padding: '12px 24px',
+                                        fontSize: '18px',
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    ← Poprzedni
+                                </button>
+                                
+                                <div style={{
+                                    fontSize: '20px',
+                                    fontWeight: 'bold',
+                                    color: '#333'
+                                }}>
+                                    {selectedDate.toLocaleDateString('pl-PL', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: 'numeric'
+                                    })}
+                                </div>
+                                
+                                <button
+                                    onClick={() => changeDate(1)}
+                                    disabled={selectedDate >= new Date()}
+                                    style={{
+                                        background: selectedDate >= new Date() ? '#e0e0e0' : '#ff6b6b',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        padding: '12px 24px',
+                                        fontSize: '18px',
+                                        cursor: selectedDate >= new Date() ? 'not-allowed' : 'pointer',
+                                        fontFamily: 'inherit',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    Następny →
+                                </button>
+                            </div>
+
+                            {/* Lista wpisów - Karmienia */}
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '20px',
+                                padding: '24px',
+                                marginBottom: '24px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                            }}>
+                                <h2 style={{
+                                    margin: '0 0 20px 0',
+                                    color: '#a8d5ba',
+                                    fontSize: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px'
+                                }}>
+                                    <span style={{ fontSize: '32px' }}>🍼</span>
+                                    Karmienia
+                                </h2>
+                                
+                                {entries.filter(e => e.type === 'feeding').length === 0 ? (
+                                    <p style={{ color: '#999', fontStyle: 'italic' }}>
+                                        Brak wpisów
+                                    </p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {entries.filter(e => e.type === 'feeding').map(entry => (
+                                            <div
+                                                key={entry.id}
+                                                style={{
+                                                    background: '#f8fff9',
+                                                    padding: '16px',
+                                                    borderRadius: '12px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    borderLeft: `4px solid ${getTypeColor(entry.type)}`,
+                                                    flexWrap: 'wrap',
+                                                    gap: '12px'
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                                                        {formatDateTime(entry.timestamp)}
+                                                    </div>
+                                                    {entry.note && (
+                                                        <div style={{ fontSize: '14px', color: '#666', fontStyle: 'italic' }}>
+                                                            {entry.note}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        onClick={() => startEdit(entry)}
+                                                        style={{
+                                                            background: '#4caf50',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            padding: '8px 16px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '14px',
+                                                            fontFamily: 'inherit'
+                                                        }}
+                                                    >
+                                                        Edytuj
+                                                    </button>
+                                                    
+                                                    <button
+                                                        onClick={() => setShowDeleteConfirm(entry.id)}
+                                                        style={{
+                                                            background: '#f44336',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            padding: '8px 16px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '14px',
+                                                            fontFamily: 'inherit'
+                                                        }}
+                                                    >
+                                                        Usuń
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Lista wpisów - Kupki i Siku */}
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '20px',
+                                padding: '24px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                            }}>
+                                <h2 style={{
+                                    margin: '0 0 20px 0',
+                                    color: '#d4a574',
+                                    fontSize: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px'
+                                }}>
+                                    <span style={{ fontSize: '32px' }}>💩💧</span>
+                                    Kupki i Siku
+                                </h2>
+                                
+                                {entries.filter(e => e.type !== 'feeding').length === 0 ? (
+                                    <p style={{ color: '#999', fontStyle: 'italic' }}>
+                                        Brak wpisów
+                                    </p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {entries.filter(e => e.type !== 'feeding').map(entry => (
+                                            <div
+                                                key={entry.id}
+                                                style={{
+                                                    background: '#fafafa',
+                                                    padding: '16px',
+                                                    borderRadius: '12px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    borderLeft: `4px solid ${getTypeColor(entry.type)}`,
+                                                    flexWrap: 'wrap',
+                                                    gap: '12px'
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                                                        {getTypeLabel(entry.type)}
+                                                    </div>
+                                                    <div style={{ fontSize: '14px', color: '#666' }}>
+                                                        {formatDateTime(entry.timestamp)}
+                                                    </div>
+                                                    {entry.note && (
+                                                        <div style={{ fontSize: '14px', color: '#666', fontStyle: 'italic', marginTop: '4px' }}>
+                                                            {entry.note}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        onClick={() => startEdit(entry)}
+                                                        style={{
+                                                            background: '#4caf50',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            padding: '8px 16px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '14px',
+                                                            fontFamily: 'inherit'
+                                                        }}
+                                                    >
+                                                        Edytuj
+                                                    </button>
+                                                    
+                                                    <button
+                                                        onClick={() => setShowDeleteConfirm(entry.id)}
+                                                        style={{
+                                                            background: '#f44336',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            padding: '8px 16px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '14px',
+                                                            fontFamily: 'inherit'
+                                                        }}
+                                                    >
+                                                        Usuń
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal dodawania/edycji */}
+                    {showModal && (
+                        <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0,0,0,0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '20px',
+                            zIndex: 1000
+                        }}>
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '24px',
+                                padding: '32px',
+                                maxWidth: '500px',
+                                width: '100%',
+                                boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                            }}>
+                                <h2 style={{ margin: '0 0 24px 0', fontSize: '24px', color: '#333' }}>
+                                    {modalType === 'edit' ? 'Edytuj wpis' : 'Dodaj wpis'}
+                                </h2>
+                                
+                                {modalType !== 'edit' || editingEntry?.type !== 'feeding' ? (
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px',
+                                            padding: '16px',
+                                            background: '#f8f8f8',
+                                            borderRadius: '12px',
+                                            cursor: 'pointer',
+                                            marginBottom: '12px',
+                                            transition: 'background 0.3s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f0f0f0'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = '#f8f8f8'}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={modalData.poop}
+                                                onChange={(e) => setModalData({...modalData, poop: e.target.checked})}
+                                                style={{
+                                                    width: '24px',
+                                                    height: '24px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            />
+                                            <span style={{ fontSize: '24px' }}>💩</span>
+                                            <span style={{ fontSize: '18px', fontWeight: '600' }}>Kupka</span>
+                                        </label>
+                                        
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px',
+                                            padding: '16px',
+                                            background: '#f8f8f8',
+                                            borderRadius: '12px',
+                                            cursor: 'pointer',
+                                            transition: 'background 0.3s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f0f0f0'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = '#f8f8f8'}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={modalData.pee}
+                                                onChange={(e) => setModalData({...modalData, pee: e.target.checked})}
+                                                style={{
+                                                    width: '24px',
+                                                    height: '24px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            />
+                                            <span style={{ fontSize: '24px' }}>💧</span>
+                                            <span style={{ fontSize: '18px', fontWeight: '600' }}>Siku</span>
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <div style={{ marginBottom: '24px', padding: '16px', background: '#f8f8f8', borderRadius: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <span style={{ fontSize: '32px' }}>🍼</span>
+                                            <span style={{ fontSize: '18px', fontWeight: '600' }}>Karmienie</span>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label style={{
+                                        display: 'block',
+                                        marginBottom: '8px',
+                                        fontWeight: '600',
+                                        color: '#555'
+                                    }}>
+                                        Notatka (opcjonalnie)
+                                    </label>
+                                    <textarea
+                                        value={modalData.note}
+                                        onChange={(e) => setModalData({...modalData, note: e.target.value})}
+                                        placeholder="Dodaj notatkę..."
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            borderRadius: '12px',
+                                            border: '2px solid #e0e0e0',
+                                            fontSize: '16px',
+                                            fontFamily: 'inherit',
+                                            minHeight: '100px',
+                                            resize: 'vertical',
+                                            boxSizing: 'border-box'
+                                        }}
+                                    />
+                                </div>
+                                
+                                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                    <button
+                                        onClick={() => {
+                                            setShowModal(false);
+                                            setEditingEntry(null);
+                                        }}
+                                        style={{
+                                            flex: 1,
+                                            minWidth: '120px',
+                                            padding: '14px',
+                                            background: '#e0e0e0',
+                                            color: '#666',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            fontFamily: 'inherit'
+                                        }}
+                                    >
+                                        Anuluj
+                                    </button>
+                                    
+                                    <button
+                                        onClick={modalType === 'edit' ? saveEdit : saveDiaperEntry}
+                                        style={{
+                                            flex: 1,
+                                            minWidth: '120px',
+                                            padding: '14px',
+                                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            fontFamily: 'inherit'
+                                        }}
+                                    >
+                                        {modalType === 'edit' ? 'Zapisz zmiany' : 'Zapisz'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal potwierdzenia usunięcia */}
+                    {showDeleteConfirm && (
+                        <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0,0,0,0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '20px',
+                            zIndex: 1000
+                        }}>
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '24px',
+                                padding: '32px',
+                                maxWidth: '400px',
+                                width: '100%',
+                                boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                            }}>
+                                <h2 style={{ margin: '0 0 16px 0', fontSize: '24px', color: '#333' }}>
+                                    Potwierdź usunięcie
+                                </h2>
+                                
+                                <p style={{ margin: '0 0 24px 0', color: '#666', fontSize: '16px' }}>
+                                    Czy na pewno chcesz usunąć ten wpis? Tej operacji nie można cofnąć.
+                                </p>
+                                
+                                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                    <button
+                                        onClick={() => setShowDeleteConfirm(null)}
+                                        style={{
+                                            flex: 1,
+                                            minWidth: '120px',
+                                            padding: '14px',
+                                            background: '#e0e0e0',
+                                            color: '#666',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            fontFamily: 'inherit'
+                                        }}
+                                    >
+                                        Anuluj
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => deleteEntry(showDeleteConfirm)}
+                                        style={{
+                                            flex: 1,
+                                            minWidth: '120px',
+                                            padding: '14px',
+                                            background: '#f44336',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            fontFamily: 'inherit'
+                                        }}
+                                    >
+                                        Usuń
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Renderowanie aplikacji
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

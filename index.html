@@ -166,7 +166,8 @@
             const [modalData, setModalData] = useState({
                 poop: false,
                 pee: false,
-                note: ''
+                note: '',
+                time: ''
             });
             const [editingEntry, setEditingEntry] = useState(null);
             const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
@@ -382,7 +383,7 @@
 
             const openDiaperModal = (type) => {
                 setModalType(type);
-                setModalData({ poop: false, pee: false, note: '' });
+                setModalData({ poop: false, pee: false, note: '', time: '' });
                 setShowModal(true);
             };
 
@@ -422,17 +423,24 @@
 
             const startEdit = (entry) => {
                 setEditingEntry(entry);
+                // Extract time from timestamp (HH:MM format)
+                const entryDate = new Date(entry.timestamp);
+                const hours = String(entryDate.getHours()).padStart(2, '0');
+                const minutes = String(entryDate.getMinutes()).padStart(2, '0');
+                const timeString = `${hours}:${minutes}`;
+                
                 setModalData({
                     poop: entry.type === 'poop' || entry.type === 'both',
                     pee: entry.type === 'pee' || entry.type === 'both',
-                    note: entry.note || ''
+                    note: entry.note || '',
+                    time: timeString
                 });
                 setModalType('edit');
                 setShowModal(true);
             };
 
             const saveEdit = async () => {
-                const { poop, pee, note } = modalData;
+                const { poop, pee, note, time } = modalData;
                 
                 let type = editingEntry.type;
                 if (editingEntry.type !== 'feeding') {
@@ -445,11 +453,21 @@
                     }
                 }
 
+                // Create new timestamp with edited time
+                let newTimestamp = editingEntry.timestamp;
+                if (time && time.includes(':')) {
+                    const originalDate = new Date(editingEntry.timestamp);
+                    const [hours, minutes] = time.split(':');
+                    originalDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                    newTimestamp = originalDate.toISOString();
+                }
+
                 const { error } = await supabase
                     .from('entries')
                     .update({ 
                         type, 
-                        note: note.trim() || null 
+                        note: note.trim() || null,
+                        timestamp: newTimestamp
                     })
                     .eq('id', editingEntry.id);
 
@@ -1197,18 +1215,6 @@
                                     padding: '24px',
                                     boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
                                 }}>
-                                    <h2 style={{
-                                        margin: '0 0 20px 0',
-                                        color: '#333',
-                                        fontSize: '24px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px'
-                                    }}>
-                                        <span style={{ fontSize: '32px' }}>💊</span>
-                                        Witamina D
-                                    </h2>
-                                    
                                     {entries.filter(e => e.type === 'vitamin_d').length === 0 ? (
                                         <div style={{
                                             padding: '16px',
@@ -1276,18 +1282,6 @@
                                     padding: '24px',
                                     boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
                                 }}>
-                                    <h2 style={{
-                                        margin: '0 0 20px 0',
-                                        color: '#333',
-                                        fontSize: '24px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px'
-                                    }}>
-                                        <span style={{ fontSize: '32px' }}>🦠</span>
-                                        Probiotyk
-                                    </h2>
-                                    
                                     {entries.filter(e => e.type === 'probiotic').length === 0 ? (
                                         <div style={{
                                             padding: '16px',
@@ -1803,6 +1797,34 @@
                                     </div>
                                 )}
                                 
+                                {/* Time input - only in edit mode */}
+                                {modalType === 'edit' && (
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <label style={{
+                                            display: 'block',
+                                            marginBottom: '8px',
+                                            fontWeight: '600',
+                                            color: '#555'
+                                        }}>
+                                            Godzina
+                                        </label>
+                                        <input
+                                            type="time"
+                                            value={modalData.time}
+                                            onChange={(e) => setModalData({...modalData, time: e.target.value})}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px',
+                                                borderRadius: '12px',
+                                                border: '2px solid #e0e0e0',
+                                                fontSize: '16px',
+                                                fontFamily: 'inherit',
+                                                boxSizing: 'border-box'
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                
                                 <div style={{ marginBottom: '24px' }}>
                                     <label style={{
                                         display: 'block',
@@ -1955,17 +1977,21 @@
                         <div className="success-notification">
                             <div style={{
                                 background: 'white',
-                                borderRadius: '24px',
-                                padding: '48px',
+                                borderRadius: '16px',
+                                padding: '24px 32px',
                                 textAlign: 'center',
                                 maxWidth: '400px',
-                                margin: '20px'
+                                margin: '20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                justifyContent: 'center'
                             }}>
-                                <div style={{ fontSize: '72px', marginBottom: '24px' }}>
+                                <div style={{ fontSize: '24px' }}>
                                     ✅
                                 </div>
                                 <div style={{
-                                    fontSize: '28px',
+                                    fontSize: '18px',
                                     fontWeight: 'bold',
                                     color: '#333'
                                 }}>

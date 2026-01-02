@@ -59,6 +59,12 @@
                 font-size: 18px !important;
             }
             
+            /* Tabs - smaller font for 3 buttons */
+            button[onclick*="setCurrentView"] {
+                font-size: 14px !important;
+                padding: 10px 8px !important;
+            }
+            
             .nav-button-text {
                 display: none;
             }
@@ -84,6 +90,32 @@
             
             .summary-box > div:last-child {
                 font-size: 24px !important;
+            }
+            
+            /* Summary table mobile styles */
+            table {
+                font-size: 12px !important;
+            }
+            
+            table th,
+            table td {
+                padding: 8px !important;
+            }
+            
+            table th:first-child,
+            table td:first-child {
+                position: sticky;
+                left: 0;
+                background: white;
+                z-index: 1;
+            }
+            
+            table thead tr th:first-child {
+                background: white !important;
+            }
+            
+            table tbody tr:nth-child(even) td:first-child {
+                background: #fafafa !important;
             }
         }
     </style>
@@ -124,6 +156,9 @@
             const [password, setPassword] = useState('');
             const [loginError, setLoginError] = useState('');
             const [currentView, setCurrentView] = useState('dashboard');
+            const [summaryPage, setSummaryPage] = useState(0);
+            const ITEMS_PER_PAGE = 30;
+            const [historicalSummary, setHistoricalSummary] = useState([]);
             const [entries, setEntries] = useState([]);
             const [selectedDate, setSelectedDate] = useState(new Date());
             const [showModal, setShowModal] = useState(false);
@@ -162,6 +197,14 @@
                     checkProbiotic();
                 }
             }, [isLoggedIn, entries, selectedDate]);
+
+            // Pobierz historyczne podsumowanie gdy użytkownik przełączy się na zakładkę
+            useEffect(() => {
+                if (isLoggedIn && currentView === 'summary') {
+                    setSummaryPage(0); // Reset do pierwszej strony
+                    fetchHistoricalSummary();
+                }
+            }, [isLoggedIn, currentView]);
 
             const isToday = (date) => {
                 const today = new Date();
@@ -214,6 +257,55 @@
                 } else {
                     setEntries(data || []);
                 }
+            };
+
+            const fetchHistoricalSummary = async () => {
+                // Pobierz wszystkie wpisy od 17.11.2025
+                const startDate = new Date('2025-11-17T00:00:00');
+                const { data, error } = await supabase
+                    .from('entries')
+                    .select('*')
+                    .gte('timestamp', startDate.toISOString())
+                    .order('timestamp', { ascending: false });
+
+                if (error) {
+                    console.error('Błąd pobierania historii:', error);
+                    return;
+                }
+
+                // Grupuj wpisy po dniach
+                const dailySummary = {};
+                
+                (data || []).forEach(entry => {
+                    const date = entry.timestamp.split('T')[0]; // YYYY-MM-DD
+                    
+                    if (!dailySummary[date]) {
+                        dailySummary[date] = {
+                            date: date,
+                            feeding: 0,
+                            poop: 0,
+                            pee: 0
+                        };
+                    }
+                    
+                    if (entry.type === 'feeding') {
+                        dailySummary[date].feeding++;
+                    } else if (entry.type === 'poop') {
+                        dailySummary[date].poop++;
+                    } else if (entry.type === 'pee') {
+                        dailySummary[date].pee++;
+                    } else if (entry.type === 'both') {
+                        dailySummary[date].poop++;
+                        dailySummary[date].pee++;
+                    }
+                });
+
+                // Konwertuj na tablicę i sortuj od najnowszych
+                const summaryArray = Object.values(dailySummary).sort((a, b) => 
+                    new Date(b.date) - new Date(a.date)
+                );
+                
+                setHistoricalSummary(summaryArray);
             };
 
             const handleLogin = (e) => {
@@ -625,7 +717,7 @@
                             </button>
                         </div>
                         
-                        {/* Tabs - Panel and Historia */}
+                        {/* Tabs - Panel, Historia, and Podsumowanie */}
                         <div style={{
                             background: 'white',
                             borderRadius: '16px',
@@ -670,6 +762,25 @@
                                 }}
                             >
                                 Historia
+                            </button>
+                            
+                            <button
+                                onClick={() => setCurrentView('summary')}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: currentView === 'summary' ? '#000' : 'transparent',
+                                    color: currentView === 'summary' ? 'white' : '#666',
+                                    border: 'none',
+                                    borderRadius: '10px',
+                                    cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    transition: 'all 0.3s'
+                                }}
+                            >
+                                Podsumowanie
                             </button>
                         </div>
                     </div>
@@ -1423,6 +1534,179 @@
                                 )}
                             </div>
                             
+                        </div>
+                    )}
+
+                    {/* Historical Summary */}
+                    {currentView === 'summary' && (
+                        <div style={{
+                            maxWidth: '900px',
+                            margin: '0 auto'
+                        }}>
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '20px',
+                                padding: '24px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                            }}>
+                                <h2 style={{
+                                    margin: '0 0 24px 0',
+                                    color: '#333',
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    textAlign: 'center'
+                                }}>
+                                    📊 Historyczne Podsumowanie
+                                </h2>
+                                
+                                {/* Table */}
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{
+                                        width: '100%',
+                                        borderCollapse: 'collapse',
+                                        fontSize: '14px'
+                                    }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '2px solid #e0e0e0' }}>
+                                                <th style={{
+                                                    padding: '12px',
+                                                    textAlign: 'left',
+                                                    fontWeight: 'bold',
+                                                    color: '#333'
+                                                }}>
+                                                    Data
+                                                </th>
+                                                <th style={{
+                                                    padding: '12px',
+                                                    textAlign: 'center',
+                                                    fontWeight: 'bold',
+                                                    color: '#333'
+                                                }}>
+                                                    🍼 Karmienia
+                                                </th>
+                                                <th style={{
+                                                    padding: '12px',
+                                                    textAlign: 'center',
+                                                    fontWeight: 'bold',
+                                                    color: '#333'
+                                                }}>
+                                                    💩 Kupki
+                                                </th>
+                                                <th style={{
+                                                    padding: '12px',
+                                                    textAlign: 'center',
+                                                    fontWeight: 'bold',
+                                                    color: '#333'
+                                                }}>
+                                                    💧 Siku
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {historicalSummary
+                                                .slice(summaryPage * ITEMS_PER_PAGE, (summaryPage + 1) * ITEMS_PER_PAGE)
+                                                .map((day, index) => (
+                                                    <tr 
+                                                        key={day.date}
+                                                        style={{
+                                                            borderBottom: '1px solid #f0f0f0',
+                                                            background: index % 2 === 0 ? 'white' : '#fafafa'
+                                                        }}
+                                                    >
+                                                        <td style={{
+                                                            padding: '12px',
+                                                            fontWeight: '500',
+                                                            color: '#333'
+                                                        }}>
+                                                            {new Date(day.date).toLocaleDateString('pl-PL', {
+                                                                day: '2-digit',
+                                                                month: '2-digit',
+                                                                year: 'numeric'
+                                                            })}
+                                                        </td>
+                                                        <td style={{
+                                                            padding: '12px',
+                                                            textAlign: 'center',
+                                                            color: '#666'
+                                                        }}>
+                                                            {day.feeding}
+                                                        </td>
+                                                        <td style={{
+                                                            padding: '12px',
+                                                            textAlign: 'center',
+                                                            color: '#666'
+                                                        }}>
+                                                            {day.poop}
+                                                        </td>
+                                                        <td style={{
+                                                            padding: '12px',
+                                                            textAlign: 'center',
+                                                            color: '#666'
+                                                        }}>
+                                                            {day.pee}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                {/* Pagination */}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginTop: '24px',
+                                    flexWrap: 'wrap',
+                                    gap: '12px'
+                                }}>
+                                    <button
+                                        onClick={() => setSummaryPage(prev => Math.max(0, prev - 1))}
+                                        disabled={summaryPage === 0}
+                                        style={{
+                                            padding: '10px 20px',
+                                            background: summaryPage === 0 ? '#e0e0e0' : '#000',
+                                            color: summaryPage === 0 ? '#999' : 'white',
+                                            border: 'none',
+                                            borderRadius: '10px',
+                                            cursor: summaryPage === 0 ? 'not-allowed' : 'pointer',
+                                            fontFamily: 'inherit',
+                                            fontSize: '14px',
+                                            fontWeight: '600'
+                                        }}
+                                    >
+                                        ← Poprzednie
+                                    </button>
+                                    
+                                    <div style={{
+                                        color: '#666',
+                                        fontSize: '14px',
+                                        fontWeight: '500'
+                                    }}>
+                                        Strona {summaryPage + 1} z {Math.ceil(historicalSummary.length / ITEMS_PER_PAGE)}
+                                    </div>
+                                    
+                                    <button
+                                        onClick={() => setSummaryPage(prev => 
+                                            prev < Math.ceil(historicalSummary.length / ITEMS_PER_PAGE) - 1 ? prev + 1 : prev
+                                        )}
+                                        disabled={summaryPage >= Math.ceil(historicalSummary.length / ITEMS_PER_PAGE) - 1}
+                                        style={{
+                                            padding: '10px 20px',
+                                            background: summaryPage >= Math.ceil(historicalSummary.length / ITEMS_PER_PAGE) - 1 ? '#e0e0e0' : '#000',
+                                            color: summaryPage >= Math.ceil(historicalSummary.length / ITEMS_PER_PAGE) - 1 ? '#999' : 'white',
+                                            border: 'none',
+                                            borderRadius: '10px',
+                                            cursor: summaryPage >= Math.ceil(historicalSummary.length / ITEMS_PER_PAGE) - 1 ? 'not-allowed' : 'pointer',
+                                            fontFamily: 'inherit',
+                                            fontSize: '14px',
+                                            fontWeight: '600'
+                                        }}
+                                    >
+                                        Następne →
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
 

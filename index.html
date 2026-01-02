@@ -22,70 +22,29 @@
             min-height: 100vh;
         }
         
-        /* Hamburger menu styles */
-        .hamburger {
-            display: none;
-            flex-direction: column;
-            cursor: pointer;
-            padding: 8px;
-            gap: 6px;
-        }
-        
-        .hamburger span {
-            width: 28px;
-            height: 3px;
-            background: #ff6b6b;
-            border-radius: 2px;
-            transition: all 0.3s;
-        }
-        
-        .hamburger.open span:nth-child(1) {
-            transform: rotate(45deg) translate(8px, 8px);
-        }
-        
-        .hamburger.open span:nth-child(2) {
-            opacity: 0;
-        }
-        
-        .hamburger.open span:nth-child(3) {
-            transform: rotate(-45deg) translate(7px, -7px);
-        }
-        
-        .mobile-menu {
-            display: none;
+        /* Success notification */
+        .success-notification {
             position: fixed;
-            top: 76px;
+            top: 0;
             left: 0;
             right: 0;
-            background: white;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            z-index: 999;
-            padding: 20px;
-            gap: 12px;
-            flex-direction: column;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease-in;
         }
         
-        .mobile-menu.open {
-            display: flex;
-        }
-        
-        .desktop-menu {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         
         @media (max-width: 768px) {
-            .hamburger {
-                display: flex;
-            }
-            
-            .desktop-menu {
-                display: none;
-            }
-            
             .dashboard-grid {
-                grid-template-columns: repeat(3, 1fr) !important;
+                grid-template-columns: repeat(2, 1fr) !important;
             }
             
             .dashboard-button {
@@ -97,7 +56,7 @@
             }
             
             .dashboard-button .label {
-                font-size: 16px !important;
+                font-size: 18px !important;
             }
         }
     </style>
@@ -151,7 +110,8 @@
             const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
             const [showVitaminDPrompt, setShowVitaminDPrompt] = useState(false);
             const [showProbioticPrompt, setShowProbioticPrompt] = useState(false);
-            const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+            const [showSuccessNotification, setShowSuccessNotification] = useState(false);
+            const [notificationMessage, setNotificationMessage] = useState('');
 
             // Sprawdź czy użytkownik jest zalogowany
             useEffect(() => {
@@ -191,6 +151,21 @@
             const checkProbiotic = () => {
                 const hasProbiotic = entries.some(entry => entry.type === 'probiotic');
                 setShowProbioticPrompt(isToday(selectedDate) && !hasProbiotic);
+            };
+
+            const showNotification = (message) => {
+                setNotificationMessage(message);
+                setShowSuccessNotification(true);
+                setTimeout(() => {
+                    setShowSuccessNotification(false);
+                }, 3000);
+            };
+
+            const getDaySummary = () => {
+                const feedingCount = entries.filter(e => e.type === 'feeding').length;
+                const poopCount = entries.filter(e => e.type === 'poop' || e.type === 'both').length;
+                const peeCount = entries.filter(e => e.type === 'pee' || e.type === 'both').length;
+                return { feedingCount, poopCount, peeCount };
             };
 
             const fetchEntries = async () => {
@@ -245,6 +220,7 @@
                     console.error('Błąd dodawania karmienia:', error);
                     alert('Błąd zapisu. Sprawdź konfigurację Supabase.');
                 } else {
+                    showNotification('✅ Dodano karmienie');
                     fetchEntries();
                 }
             };
@@ -320,6 +296,7 @@
                     alert('Błąd zapisu. Sprawdź konfigurację Supabase.');
                 } else {
                     setShowModal(false);
+                    showNotification('✅ Dodano kupkę/siku');
                     fetchEntries();
                 }
             };
@@ -581,35 +558,63 @@
                     {/* Header */}
                     <div style={{
                         maxWidth: '900px',
-                        margin: '0 auto 24px',
-                        background: 'white',
-                        borderRadius: '20px',
-                        padding: '20px 32px',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: '12px',
-                        position: 'relative'
+                        margin: '0 auto 16px'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ fontSize: '36px' }}>👶</div>
-                            <h1 style={{ margin: 0, color: '#ff6b6b', fontSize: '28px' }}>
-                                Baby Monitor
-                            </h1>
+                        {/* Top bar - Logo and Logout */}
+                        <div style={{
+                            background: 'white',
+                            borderRadius: '20px',
+                            padding: '16px 24px',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '12px'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ fontSize: '36px' }}>👶</div>
+                                <h1 style={{ margin: 0, color: '#ff6b6b', fontSize: '28px' }}>
+                                    Baby Monitor
+                                </h1>
+                            </div>
+                            
+                            <button
+                                onClick={handleLogout}
+                                style={{
+                                    padding: '10px 20px',
+                                    background: '#f0f0f0',
+                                    color: '#666',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                    fontSize: '15px',
+                                    fontWeight: '600',
+                                    transition: 'all 0.3s'
+                                }}
+                            >
+                                Wyloguj
+                            </button>
                         </div>
                         
-                        {/* Desktop menu */}
-                        <div className="desktop-menu" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        {/* Tabs - Panel and Historia */}
+                        <div style={{
+                            background: 'white',
+                            borderRadius: '16px',
+                            padding: '8px',
+                            boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                            display: 'flex',
+                            gap: '8px'
+                        }}>
                             <button
                                 onClick={() => setCurrentView('dashboard')}
                                 style={{
-                                    padding: '12px 24px',
-                                    background: currentView === 'dashboard' ? '#ff6b6b' : '#f0f0f0',
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: currentView === 'dashboard' ? '#ff6b6b' : 'transparent',
                                     color: currentView === 'dashboard' ? 'white' : '#666',
                                     border: 'none',
-                                    borderRadius: '12px',
+                                    borderRadius: '10px',
                                     cursor: 'pointer',
                                     fontFamily: 'inherit',
                                     fontSize: '16px',
@@ -623,11 +628,12 @@
                             <button
                                 onClick={() => setCurrentView('history')}
                                 style={{
-                                    padding: '12px 24px',
-                                    background: currentView === 'history' ? '#ff6b6b' : '#f0f0f0',
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: currentView === 'history' ? '#ff6b6b' : 'transparent',
                                     color: currentView === 'history' ? 'white' : '#666',
                                     border: 'none',
-                                    borderRadius: '12px',
+                                    borderRadius: '10px',
                                     cursor: 'pointer',
                                     fontFamily: 'inherit',
                                     fontSize: '16px',
@@ -637,101 +643,7 @@
                             >
                                 Historia
                             </button>
-                            
-                            <button
-                                onClick={handleLogout}
-                                style={{
-                                    padding: '12px 24px',
-                                    background: '#f0f0f0',
-                                    color: '#666',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    cursor: 'pointer',
-                                    fontFamily: 'inherit',
-                                    fontSize: '16px',
-                                    fontWeight: '600',
-                                    transition: 'all 0.3s'
-                                }}
-                            >
-                                Wyloguj
-                            </button>
                         </div>
-                        
-                        {/* Hamburger menu button */}
-                        <div 
-                            className={`hamburger ${mobileMenuOpen ? 'open' : ''}`}
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        >
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                    </div>
-                    
-                    {/* Mobile menu */}
-                    <div className={`mobile-menu ${mobileMenuOpen ? 'open' : ''}`}>
-                        <button
-                            onClick={() => {
-                                setCurrentView('dashboard');
-                                setMobileMenuOpen(false);
-                            }}
-                            style={{
-                                padding: '12px 24px',
-                                background: currentView === 'dashboard' ? '#ff6b6b' : '#f0f0f0',
-                                color: currentView === 'dashboard' ? 'white' : '#666',
-                                border: 'none',
-                                borderRadius: '12px',
-                                cursor: 'pointer',
-                                fontFamily: 'inherit',
-                                fontSize: '16px',
-                                fontWeight: '600',
-                                transition: 'all 0.3s',
-                                width: '100%'
-                            }}
-                        >
-                            Panel
-                        </button>
-                        
-                        <button
-                            onClick={() => {
-                                setCurrentView('history');
-                                setMobileMenuOpen(false);
-                            }}
-                            style={{
-                                padding: '12px 24px',
-                                background: currentView === 'history' ? '#ff6b6b' : '#f0f0f0',
-                                color: currentView === 'history' ? 'white' : '#666',
-                                border: 'none',
-                                borderRadius: '12px',
-                                cursor: 'pointer',
-                                fontFamily: 'inherit',
-                                fontSize: '16px',
-                                fontWeight: '600',
-                                transition: 'all 0.3s',
-                                width: '100%'
-                            }}
-                        >
-                            Historia
-                        </button>
-                        
-                        <button
-                            onClick={handleLogout}
-                            style={{
-                                padding: '12px 24px',
-                                background: '#f0f0f0',
-                                color: '#666',
-                                border: 'none',
-                                borderRadius: '12px',
-                                cursor: 'pointer',
-                                fontFamily: 'inherit',
-                                fontSize: '16px',
-                                fontWeight: '600',
-                                transition: 'all 0.3s',
-                                width: '100%'
-                            }}
-                        >
-                            Wyloguj
-                        </button>
                     </div>
 
                     {/* Dashboard */}
@@ -920,7 +832,7 @@
                             
                             <div className="dashboard-grid" style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                gridTemplateColumns: 'repeat(2, 1fr)',
                                 gap: '24px'
                             }}>
                                 {/* Karmienie */}
@@ -960,10 +872,10 @@
                                     </div>
                                 </button>
 
-                                {/* Kupka */}
+                                {/* Kupka/Siku */}
                                 <button
                                     className="dashboard-button"
-                                    onClick={() => openDiaperModal('poop')}
+                                    onClick={() => openDiaperModal('both')}
                                     style={{
                                         background: 'white',
                                         border: 'none',
@@ -986,51 +898,14 @@
                                         e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
                                     }}
                                 >
-                                    <div className="emoji" style={{ fontSize: '72px' }}>💩</div>
+                                    <div className="emoji" style={{ fontSize: '72px' }}>💩💧</div>
                                     <div className="label" style={{
                                         fontSize: '24px',
                                         fontWeight: 'bold',
-                                        color: '#d4a574',
+                                        color: '#9fa8da',
                                         fontFamily: 'inherit'
                                     }}>
-                                        Kupka
-                                    </div>
-                                </button>
-
-                                {/* Siku */}
-                                <button
-                                    className="dashboard-button"
-                                    onClick={() => openDiaperModal('pee')}
-                                    style={{
-                                        background: 'white',
-                                        border: 'none',
-                                        borderRadius: '24px',
-                                        padding: '48px 32px',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                                        transition: 'all 0.3s',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: '16px'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(-8px)';
-                                        e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
-                                    }}
-                                >
-                                    <div className="emoji" style={{ fontSize: '72px' }}>💧</div>
-                                    <div className="label" style={{
-                                        fontSize: '24px',
-                                        fontWeight: 'bold',
-                                        color: '#7fb3d5',
-                                        fontFamily: 'inherit'
-                                    }}>
-                                        Siku
+                                        Kupka/Siku
                                     </div>
                                 </button>
                             </div>
@@ -1102,6 +977,74 @@
                                 >
                                     Następny →
                                 </button>
+                            </div>
+
+                            {/* Podsumowanie dnia */}
+                            <div style={{
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                borderRadius: '20px',
+                                padding: '24px',
+                                marginBottom: '24px',
+                                boxShadow: '0 4px 20px rgba(102, 126, 234, 0.3)'
+                            }}>
+                                <h3 style={{
+                                    margin: '0 0 16px 0',
+                                    color: 'white',
+                                    fontSize: '20px',
+                                    textAlign: 'center'
+                                }}>
+                                    📊 Podsumowanie dnia
+                                </h3>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                                    gap: '16px'
+                                }}>
+                                    <div style={{
+                                        background: 'rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '12px',
+                                        padding: '16px',
+                                        textAlign: 'center'
+                                    }}>
+                                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>🍼</div>
+                                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'white', marginBottom: '4px' }}>
+                                            {getDaySummary().feedingCount}
+                                        </div>
+                                        <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)' }}>
+                                            {getDaySummary().feedingCount === 1 ? 'karmienie' : 'karmienia/karmień'}
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{
+                                        background: 'rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '12px',
+                                        padding: '16px',
+                                        textAlign: 'center'
+                                    }}>
+                                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>💩</div>
+                                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'white', marginBottom: '4px' }}>
+                                            {getDaySummary().poopCount}
+                                        </div>
+                                        <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)' }}>
+                                            {getDaySummary().poopCount === 1 ? 'kupka' : 'kupki/kupek'}
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{
+                                        background: 'rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '12px',
+                                        padding: '16px',
+                                        textAlign: 'center'
+                                    }}>
+                                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>💧</div>
+                                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'white', marginBottom: '4px' }}>
+                                            {getDaySummary().peeCount}
+                                        </div>
+                                        <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)' }}>
+                                            {getDaySummary().peeCount === 1 ? 'siku' : 'razy siku'}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Lista wpisów - Karmienia */}
@@ -1695,6 +1638,31 @@
                                     >
                                         Usuń
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Success notification */}
+                    {showSuccessNotification && (
+                        <div className="success-notification">
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '24px',
+                                padding: '48px',
+                                textAlign: 'center',
+                                maxWidth: '400px',
+                                margin: '20px'
+                            }}>
+                                <div style={{ fontSize: '72px', marginBottom: '24px' }}>
+                                    ✅
+                                </div>
+                                <div style={{
+                                    fontSize: '28px',
+                                    fontWeight: 'bold',
+                                    color: '#4caf50'
+                                }}>
+                                    {notificationMessage}
                                 </div>
                             </div>
                         </div>

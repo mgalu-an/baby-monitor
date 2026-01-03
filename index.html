@@ -342,15 +342,19 @@
 
                 console.log('Pobrano wpisów:', data?.length);
 
-                // Grupuj wpisy po dniach
+                // Grupuj wpisy po dniach (LOKALNY CZAS!)
                 const dailySummary = {};
                 
                 (data || []).forEach(entry => {
-                    const date = entry.timestamp.split('T')[0]; // YYYY-MM-DD
+                    // Konwertuj UTC timestamp na lokalną datę
+                    const localDate = new Date(entry.timestamp);
+                    const dateStr = localDate.getFullYear() + '-' + 
+                                   String(localDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                                   String(localDate.getDate()).padStart(2, '0');
                     
-                    if (!dailySummary[date]) {
-                        dailySummary[date] = {
-                            date: date,
+                    if (!dailySummary[dateStr]) {
+                        dailySummary[dateStr] = {
+                            date: dateStr,
                             feeding: 0,
                             poop: 0,
                             pee: 0
@@ -359,15 +363,15 @@
                     
                     // Zliczaj wszystkie typy poprawnie
                     if (entry.type === 'feeding') {
-                        dailySummary[date].feeding++;
+                        dailySummary[dateStr].feeding++;
                     } else if (entry.type === 'poop') {
-                        dailySummary[date].poop++;
+                        dailySummary[dateStr].poop++;
                     } else if (entry.type === 'pee') {
-                        dailySummary[date].pee++;
+                        dailySummary[dateStr].pee++;
                     } else if (entry.type === 'both') {
                         // Type "both" to +1 kupka AND +1 siku
-                        dailySummary[date].poop++;
-                        dailySummary[date].pee++;
+                        dailySummary[dateStr].poop++;
+                        dailySummary[dateStr].pee++;
                     }
                     // Pomijamy vitamind i probiotic - nie są wyświetlane w podsumowaniu
                 });

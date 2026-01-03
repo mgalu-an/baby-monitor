@@ -6,7 +6,7 @@
     <title>Baby Monitor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -14,7 +14,7 @@
             box-sizing: border-box;
         }
         body {
-            font-family: 'Quicksand', 'Comic Sans MS', cursive;
+            font-family: 'Roboto', sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
@@ -142,23 +142,20 @@
         const { useState, useEffect } = React;
 
         // === KONFIGURACJA SUPABASE ===
-        const SUPABASE_URL = 'https://jkxwqhmsayfjgaisewzr.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_mnc22clh7MV7gbH8WXCWPQ_t7Q42aW6';
+        const SUPABASE_URL = 'https://pbwxdbrsdjywtxjnjeqs.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBid3hkYnJzZGp5d3R4am5qZXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MzI4NzUsImV4cCI6MjA4MzAwODg3NX0.HIG2eAVKRsvTQ5pdhKkan8u_nd0dqQZ50tkDQa4nmmU';
 
         // Inicjalizacja Supabase
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Stałe logowania
-        const CREDENTIALS = {
-            username: 'admin',
-            password: 'kubus2025'
-        };
-
         const App = () => {
             const [isLoggedIn, setIsLoggedIn] = useState(false);
-            const [username, setUsername] = useState('');
+            const [user, setUser] = useState(null);
+            const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
             const [loginError, setLoginError] = useState('');
+            const [authMode, setAuthMode] = useState('login'); // 'login', 'register', 'reset'
+            const [successMessage, setSuccessMessage] = useState('');
             const [currentView, setCurrentView] = useState('dashboard');
             const [summaryPage, setSummaryPage] = useState(0);
             const ITEMS_PER_PAGE = 30;
@@ -192,10 +189,26 @@
 
             // Sprawdź czy użytkownik jest zalogowany
             useEffect(() => {
-                const logged = localStorage.getItem('babyMonitor_logged');
-                if (logged === 'true') {
-                    setIsLoggedIn(true);
-                }
+                // Sprawdź aktualną sesję
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    if (session) {
+                        setUser(session.user);
+                        setIsLoggedIn(true);
+                    }
+                });
+
+                // Nasłuchuj zmian w auth
+                const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                    if (session) {
+                        setUser(session.user);
+                        setIsLoggedIn(true);
+                    } else {
+                        setUser(null);
+                        setIsLoggedIn(false);
+                    }
+                });
+
+                return () => subscription.unsubscribe();
             }, []);
 
             // Pobierz wpisy dla wybranej daty
@@ -360,21 +373,88 @@
                 setHistoricalSummary(summaryArray);
             };
 
-            const handleLogin = (e) => {
+            const handleLogin = async (e) => {
                 e.preventDefault();
-                if (username === CREDENTIALS.username && password === CREDENTIALS.password) {
-                    setIsLoggedIn(true);
-                    localStorage.setItem('babyMonitor_logged', 'true');
-                    setLoginError('');
-                } else {
-                    setLoginError('Nieprawidłowa nazwa użytkownika lub hasło');
+                setLoginError('');
+                setSuccessMessage('');
+                
+                try {
+                    const { data, error } = await supabase.auth.signInWithPassword({
+                        email: email,
+                        password: password,
+                    });
+
+                    if (error) {
+                        setLoginError(error.message === 'Invalid login credentials' 
+                            ? 'Nieprawidłowy email lub hasło' 
+                            : error.message);
+                    } else {
+                        setUser(data.user);
+                        setIsLoggedIn(true);
+                        setEmail('');
+                        setPassword('');
+                    }
+                } catch (error) {
+                    setLoginError('Błąd logowania. Spróbuj ponownie.');
+                    console.error('Login error:', error);
                 }
             };
 
-            const handleLogout = () => {
+            const handleRegister = async (e) => {
+                e.preventDefault();
+                setLoginError('');
+                setSuccessMessage('');
+                
+                try {
+                    const { data, error } = await supabase.auth.signUp({
+                        email: email,
+                        password: password,
+                    });
+
+                    if (error) {
+                        setLoginError(error.message === 'User already registered' 
+                            ? 'Ten email jest już zarejestrowany' 
+                            : error.message);
+                    } else {
+                        setSuccessMessage('Konto utworzone! Sprawdź email aby je aktywować.');
+                        setEmail('');
+                        setPassword('');
+                        setTimeout(() => setAuthMode('login'), 3000);
+                    }
+                } catch (error) {
+                    setLoginError('Błąd rejestracji. Spróbuj ponownie.');
+                    console.error('Register error:', error);
+                }
+            };
+
+            const handleResetPassword = async (e) => {
+                e.preventDefault();
+                setLoginError('');
+                setSuccessMessage('');
+                
+                try {
+                    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                        redirectTo: window.location.origin,
+                    });
+
+                    if (error) {
+                        setLoginError(error.message);
+                    } else {
+                        setSuccessMessage('Link do resetowania hasła został wysłany na email!');
+                        setEmail('');
+                        setTimeout(() => setAuthMode('login'), 3000);
+                    }
+                } catch (error) {
+                    setLoginError('Błąd resetowania hasła. Spróbuj ponownie.');
+                    console.error('Reset error:', error);
+                }
+            };
+
+            const handleLogout = async () => {
+                await supabase.auth.signOut();
                 setIsLoggedIn(false);
-                localStorage.removeItem('babyMonitor_logged');
-                setUsername('');
+                setUser(null);
+                setEmail('');
                 setPassword('');
             };
 
@@ -684,7 +764,7 @@
                                 </p>
                             </div>
                             
-                            <form onSubmit={handleLogin}>
+                            <form onSubmit={authMode === 'login' ? handleLogin : authMode === 'register' ? handleRegister : handleResetPassword}>
                                 <div style={{ marginBottom: '20px' }}>
                                     <label style={{ 
                                         display: 'block', 
@@ -693,12 +773,14 @@
                                         fontWeight: '600',
                                         fontSize: '14px'
                                     }}>
-                                        Nazwa użytkownika
+                                        Email
                                     </label>
                                     <input
-                                        type="text"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="twoj@email.com"
+                                        required
                                         style={{
                                             width: '100%',
                                             padding: '14px',
@@ -714,45 +796,70 @@
                                     />
                                 </div>
                                 
-                                <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ 
-                                        display: 'block', 
-                                        marginBottom: '8px',
-                                        color: '#555',
-                                        fontWeight: '600',
-                                        fontSize: '14px'
-                                    }}>
-                                        Hasło
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '14px',
-                                            borderRadius: '12px',
-                                            border: '2px solid #e0e0e0',
-                                            fontSize: '16px',
-                                            fontFamily: 'inherit',
-                                            boxSizing: 'border-box',
-                                            transition: 'border-color 0.3s'
-                                        }}
-                                        onFocus={(e) => e.target.style.borderColor = '#666'}
-                                        onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-                                    />
-                                </div>
+                                {authMode !== 'reset' && (
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <label style={{ 
+                                            display: 'block', 
+                                            marginBottom: '8px',
+                                            color: '#555',
+                                            fontWeight: '600',
+                                            fontSize: '14px'
+                                        }}>
+                                            Hasło
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="••••••••"
+                                            required
+                                            minLength={authMode === 'register' ? 6 : undefined}
+                                            style={{
+                                                width: '100%',
+                                                padding: '14px',
+                                                borderRadius: '12px',
+                                                border: '2px solid #e0e0e0',
+                                                fontSize: '16px',
+                                                fontFamily: 'inherit',
+                                                boxSizing: 'border-box',
+                                                transition: 'border-color 0.3s'
+                                            }}
+                                            onFocus={(e) => e.target.style.borderColor = '#666'}
+                                            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                                        />
+                                        {authMode === 'register' && (
+                                            <div style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>
+                                                Minimum 6 znaków
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 
-                                {loginError && (
+                                {successMessage && (
                                     <div style={{
-                                        background: '#f5f5f5',
-                                        color: '#666',
+                                        background: '#e8f5e9',
+                                        color: '#2e7d32',
                                         padding: '12px',
                                         borderRadius: '8px',
                                         marginBottom: '20px',
                                         fontSize: '14px',
                                         textAlign: 'center',
-                                        border: '1px solid #ddd'
+                                        border: '1px solid #a5d6a7'
+                                    }}>
+                                        {successMessage}
+                                    </div>
+                                )}
+                                
+                                {loginError && (
+                                    <div style={{
+                                        background: '#ffebee',
+                                        color: '#c62828',
+                                        padding: '12px',
+                                        borderRadius: '8px',
+                                        marginBottom: '20px',
+                                        fontSize: '14px',
+                                        textAlign: 'center',
+                                        border: '1px solid #ef9a9a'
                                     }}>
                                         {loginError}
                                     </div>
@@ -772,7 +879,8 @@
                                         cursor: 'pointer',
                                         fontFamily: 'inherit',
                                         transition: 'transform 0.2s, box-shadow 0.2s',
-                                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                                        marginBottom: '16px'
                                     }}
                                     onMouseEnter={(e) => {
                                         e.target.style.transform = 'translateY(-2px)';
@@ -783,8 +891,82 @@
                                         e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
                                     }}
                                 >
-                                    Zaloguj się
+                                    {authMode === 'login' && 'Zaloguj się'}
+                                    {authMode === 'register' && 'Zarejestruj się'}
+                                    {authMode === 'reset' && 'Wyślij link'}
                                 </button>
+                                
+                                <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                                    {authMode === 'login' && (
+                                        <>
+                                            <div style={{ marginBottom: '12px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setAuthMode('reset');
+                                                        setLoginError('');
+                                                        setSuccessMessage('');
+                                                    }}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        color: '#666',
+                                                        fontSize: '14px',
+                                                        cursor: 'pointer',
+                                                        textDecoration: 'underline',
+                                                        fontFamily: 'inherit'
+                                                    }}
+                                                >
+                                                    Zapomniałeś hasła?
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <span style={{ fontSize: '14px', color: '#888' }}>Nie masz konta? </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setAuthMode('register');
+                                                        setLoginError('');
+                                                        setSuccessMessage('');
+                                                    }}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        color: '#000',
+                                                        fontSize: '14px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 'bold',
+                                                        textDecoration: 'underline',
+                                                        fontFamily: 'inherit'
+                                                    }}
+                                                >
+                                                    Zarejestruj się
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                    {(authMode === 'register' || authMode === 'reset') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAuthMode('login');
+                                                setLoginError('');
+                                                setSuccessMessage('');
+                                            }}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: '#666',
+                                                fontSize: '14px',
+                                                cursor: 'pointer',
+                                                textDecoration: 'underline',
+                                                fontFamily: 'inherit'
+                                            }}
+                                        >
+                                            ← Powrót do logowania
+                                        </button>
+                                    )}
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -825,7 +1007,7 @@
                                 }}
                             >
                                 <div style={{ fontSize: '36px' }}>👶</div>
-                                <h1 style={{ margin: 0, color: '#333', fontSize: '28px' }}>
+                                <h1 style={{ margin: 0, color: '#333', fontSize: '22px' }}>
                                     Baby Monitor
                                 </h1>
                             </div>
@@ -2310,15 +2492,8 @@
                                 padding: '24px 32px',
                                 textAlign: 'center',
                                 maxWidth: '400px',
-                                margin: '20px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                justifyContent: 'center'
+                                margin: '20px'
                             }}>
-                                <div style={{ fontSize: '24px' }}>
-                                    ✅
-                                </div>
                                 <div style={{
                                     fontSize: '18px',
                                     fontWeight: 'bold',

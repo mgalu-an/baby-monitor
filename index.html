@@ -357,11 +357,11 @@
                 }
             }, [isLoggedIn, currentView]);
 
-            // Update current time every minute for time since last feeding
+            // Update current time every second for accurate timer
             useEffect(() => {
                 const timer = setInterval(() => {
                     setCurrentTime(new Date());
-                }, 60000); // Update every minute
+                }, 1000); // Update every second
                 return () => clearInterval(timer);
             }, []);
 
@@ -387,7 +387,7 @@
             const getTimeSinceLastFeeding = () => {
                 if (!lastFeedingTime) return null;
                 
-                const diff = currentTime - lastFeedingTime;
+                const diff = new Date() - lastFeedingTime;  // ✅ Zawsze aktualny czas!
                 const hours = Math.floor(diff / (1000 * 60 * 60));
                 const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                 
@@ -604,6 +604,7 @@
                     alert('Błąd zapisu. Sprawdź konfigurację Supabase.');
                 } else {
                     showNotification('✅ Dodano karmienie');
+                    setLastFeedingTime(now);  // ✅ Natychmiastowa aktualizacja timera!
                     fetchEntries();
                 }
             };
